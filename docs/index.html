@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MuleGuard AI — GNN-based mule-account detection</title>
+<meta name="description" content="MuleGuard AI scores every bank account and ranks likely money mules to the top of the fraud team's review queue. By Ashutosh Anand, IIT Kanpur.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Besley:ital,wght@0,500;0,700;0,800;1,500&family=Public+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ECF1EE;          /* security-paper green-grey */
+    --paper-deep:#E0E8E3;
+    --card:#F7FAF8;
+    --ink:#16283C;            /* banker's ink */
+    --ink-soft:#4A5D6E;
+    --rule:#C7D4CD;           /* ledger rules */
+    --stamp:#BE3A2B;          /* auditor's red */
+    --stamp-soft:#F3DAD5;
+    --verify:#1E6B52;         /* teller's green */
+    --verify-soft:#DDEAE3;
+    --display:"Besley",Georgia,"Times New Roman",serif;
+    --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"Spline Sans Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:17px;line-height:1.65;
+    background-image:repeating-linear-gradient(to bottom,transparent 0 31px,rgba(22,40,60,.045) 31px 32px);
+  }
+  a{color:var(--ink);text-decoration-color:var(--stamp);text-decoration-thickness:1.5px;text-underline-offset:3px}
+  a:hover{color:var(--stamp)}
+  :focus-visible{outline:2.5px solid var(--stamp);outline-offset:3px;border-radius:2px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .skip{
+    position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--card);
+    padding:10px 16px;z-index:100;font-weight:600;
+  }
+  .skip:focus{left:12px;top:12px}
+
+  /* ── top bar ─────────────────────────────────────── */
+  header.bar{
+    position:sticky;top:0;z-index:50;
+    background:color-mix(in srgb,var(--paper) 92%,white);
+    border-bottom:1.5px solid var(--ink);
+    backdrop-filter:blur(6px);
+  }
+  .bar .wrap{display:flex;align-items:baseline;gap:28px;padding-top:14px;padding-bottom:12px;flex-wrap:wrap}
+  .wordmark{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.04em}
+  .wordmark .ai{color:var(--stamp)}
+  nav{display:flex;gap:18px;flex-wrap:wrap;margin-left:auto}
+  nav a{font-size:13.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;padding-bottom:2px;border-bottom:2px solid transparent}
+  nav a:hover{color:var(--stamp)}
+  nav a.active{color:var(--stamp);border-bottom-color:var(--stamp)}
+  nav a.gh{border:1.5px solid var(--ink);border-radius:3px;padding:3px 10px}
+  nav a.gh:hover{background:var(--ink);color:var(--card)}
+
+  /* ── hero ─────────────────────────────────────────── */
+  .hero{padding:64px 0 40px;border-bottom:1.5px solid var(--ink)}
+  .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+  .hero h1{
+    font-family:var(--display);font-weight:800;
+    font-size:clamp(34px,5.4vw,58px);line-height:1.08;
+    margin:14px 0 18px;max-width:20ch;
+  }
+  .hero h1 em{font-style:italic;color:var(--stamp)}
+  .hero .lede{max-width:64ch;color:var(--ink-soft);font-size:18px}
+  .hero .lede strong{color:var(--ink)}
+  .byline{
+    display:inline-block;margin-top:26px;background:var(--card);
+    border:1.5px solid var(--ink);border-left:4px solid var(--stamp);border-radius:3px;
+    padding:12px 18px;
+  }
+  .byline .who{font-family:var(--display);font-weight:700;font-size:18px}
+  .byline .role{display:block;font-size:14px;color:var(--ink-soft);font-family:var(--mono)}
+
+  /* signature: the money trail */
+  .trail{margin:44px 0 8px;overflow-x:auto;padding-bottom:6px}
+  .trail svg{display:block;min-width:720px;width:100%;height:auto}
+  .trail-caption{font-size:14px;color:var(--ink-soft);margin-top:8px;max-width:78ch}
+  .trail-caption b{color:var(--stamp);font-weight:600}
+  .trail-caption .fig{font-family:var(--mono);font-size:12.5px}
+
+  /* ── sections ─────────────────────────────────────── */
+  section{padding:64px 0;border-bottom:1.5px solid var(--rule)}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+  .sec-head h2{font-family:var(--display);font-weight:700;font-size:clamp(26px,3.4vw,36px)}
+  .sec-head .tag{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+  .sec-intro{max-width:70ch;color:var(--ink-soft);margin-bottom:30px}
+  .sec-intro strong{color:var(--ink)}
+
+  /* exhibits (problem stats) */
+  .exhibits{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin-top:26px}
+  .exhibit{
+    background:var(--card);border:1.5px solid var(--ink);border-radius:3px;
+    padding:20px 20px 16px;position:relative;
+    box-shadow:4px 4px 0 var(--paper-deep);
+  }
+  .exhibit .label{
+    position:absolute;top:-11px;left:14px;background:var(--ink);color:var(--card);
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;padding:2px 9px;border-radius:2px;
+  }
+  .exhibit .figure{font-family:var(--display);font-weight:800;font-size:clamp(26px,3vw,34px);line-height:1.1;margin:10px 0 6px}
+  .exhibit p{font-size:14.5px;color:var(--ink-soft)}
+  .exhibit p strong{color:var(--ink)}
+  .exhibit .src{display:block;margin-top:10px;font-family:var(--mono);font-size:12px}
+
+  /* generic note card */
+  .note{
+    background:var(--card);border:1.5px solid var(--rule);border-left:4px solid var(--stamp);
+    border-radius:3px;padding:16px 20px;margin-top:22px;max-width:78ch;
+  }
+  .note.green{border-left-color:var(--verify)}
+  .note h4{font-size:14px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+  .note p{font-size:15px;color:var(--ink-soft)}
+  .note p strong{color:var(--ink)}
+
+  /* ── architecture workflow (responsive flowchart) ── */
+  .flowchart{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:10px}
+  .fstage{display:flex;flex-direction:column;position:relative;padding:0 22px 0 0;margin-right:22px}
+  .fstage:not(:last-child)::after{
+    content:"";position:absolute;right:-2px;top:54px;width:0;height:0;
+    border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:12px solid var(--ink);
+  }
+  .fstage:not(:last-child)::before{
+    content:"";position:absolute;right:8px;top:62px;width:26px;height:2px;background:var(--ink);
+  }
+  .fstage:last-child{padding-right:0;margin-right:0}
+  .fbox{
+    background:var(--card);border:2px solid var(--ink);border-radius:4px;
+    padding:14px 15px;box-shadow:4px 4px 0 var(--paper-deep);flex:1;
+  }
+  .fbox .fk{font-family:var(--mono);font-size:11px;letter-spacing:.13em;color:var(--stamp);text-transform:uppercase}
+  .fbox h3{font-family:var(--display);font-weight:700;font-size:18px;margin:4px 0 6px}
+  .fbox p{font-size:13.5px;color:var(--ink-soft)}
+  .fbox .chips{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+  .fbox .chip{font-family:var(--mono);font-size:11px;background:var(--paper-deep);border:1px solid var(--rule);border-radius:2px;padding:2px 7px;color:var(--ink)}
+  @media (max-width:860px){
+    .flowchart{grid-template-columns:1fr;gap:30px}
+    .fstage{padding:0;margin:0}
+    .fstage:not(:last-child)::after{
+      right:auto;left:50%;top:auto;bottom:-24px;transform:translateX(-50%);
+      border-left:9px solid transparent;border-right:9px solid transparent;border-top:12px solid var(--ink);border-bottom:none;
+    }
+    .fstage:not(:last-child)::before{
+      right:auto;left:50%;top:auto;bottom:-18px;transform:translateX(-50%);width:2px;height:16px;
+    }
+  }
+  .arch-note{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);margin-top:28px}
+  .models-detail{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px;margin-top:30px}
+
+  /* ── mermaid architecture diagram ─────────────────── */
+  .mermaid-wrap{overflow-x:auto;margin-top:36px;border:1.5px solid var(--rule);border-radius:3px;background:var(--card);padding:18px 14px}
+  .mermaid-wrap .mermaid{min-width:820px}
+  .mermaid-caption{font-size:14px;color:var(--ink-soft);margin-top:10px;max-width:78ch}
+  .mermaid-caption .fig{font-family:var(--mono);font-size:12.5px}
+
+  /* ── methodology ──────────────────────────────────── */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:18px;margin-top:8px}
+  .step{background:var(--card);border:1.5px solid var(--rule);border-radius:3px;padding:18px 20px}
+  .step .k{font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--stamp);text-transform:uppercase}
+  .step h4{font-family:var(--display);font-weight:700;font-size:19px;margin:6px 0 6px}
+  .step p{font-size:14.5px;color:var(--ink-soft)}
+
+  /* ── results ──────────────────────────────────────── */
+  .explain{
+    background:var(--verify-soft);border:1.5px solid var(--verify);border-radius:3px;
+    padding:14px 18px;margin:6px 0 26px;max-width:78ch;font-size:15px;
+  }
+  .explain b{color:var(--verify)}
+  .ledger{width:100%;border-collapse:collapse;background:var(--card);border:1.5px solid var(--ink);margin-top:10px;font-size:15px}
+  .ledger caption{caption-side:top;text-align:left;font-size:14px;color:var(--ink-soft);padding-bottom:10px;max-width:78ch}
+  .ledger th,.ledger td{padding:10px 14px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+  .ledger th{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;border-bottom:2px solid var(--ink)}
+  .ledger td.v{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ledger tr.hl{background:var(--verify-soft)}
+  .ledger tr.ref td{color:var(--ink-soft);font-style:italic}
+  .table-scroll{overflow-x:auto}
+  .chart{margin-top:34px}
+  .chart svg{display:block;width:100%;height:auto}
+  .findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:18px;margin-top:34px}
+  .stamp-row{display:flex;align-items:center;gap:26px;margin-top:42px;flex-wrap:wrap}
+  .stamp{
+    font-family:var(--mono);font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--stamp);border:3px double var(--stamp);border-radius:6px;
+    padding:12px 20px;transform:rotate(-3.5deg);font-size:15px;
+    box-shadow:0 0 0 1px rgba(190,58,43,.15) inset;background:rgba(190,58,43,.04);
+    white-space:nowrap;
+  }
+  .stamp-row p{max-width:52ch;font-size:15px;color:var(--ink-soft)}
+
+  /* ── limits & future ──────────────────────────────── */
+  .two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:38px}
+  .doc-list{list-style:none}
+  .doc-list li{
+    padding:12px 0 12px 30px;border-bottom:1px solid var(--rule);
+    font-size:15px;position:relative;color:var(--ink-soft);
+  }
+  .doc-list li strong{color:var(--ink)}
+  .doc-list li::before{position:absolute;left:0;top:13px;font-family:var(--mono);font-size:13px}
+  .doc-list.limits li::before{content:"✕";color:var(--stamp)}
+  .doc-list.future li::before{content:"▸";color:var(--verify)}
+
+  /* ── footer ───────────────────────────────────────── */
+  footer{padding:44px 0 60px}
+  footer .wrap{display:grid;gap:26px}
+  .repo-cta{
+    display:inline-block;font-family:var(--mono);font-weight:600;font-size:14px;
+    background:var(--ink);color:var(--card);padding:12px 20px;border-radius:3px;
+    text-decoration:none;justify-self:start;
+  }
+  .repo-cta:hover{background:var(--stamp);color:var(--card)}
+  .sources h4{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+  .sources ol{padding-left:20px;font-size:13.5px;color:var(--ink-soft)}
+  .sources li{margin-bottom:5px}
+  .fineprint{font-family:var(--mono);font-size:12px;color:var(--ink-soft);border-top:1.5px solid var(--ink);padding-top:16px}
+
+  /* reveal on scroll */
+  .rv{opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease}
+  .rv.in{opacity:1;transform:none}
+  .flow{stroke-dasharray:7 8;animation:flow 1.6s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-30}}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .rv{opacity:1;transform:none;transition:none}
+    .flow{animation:none}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#problem">Skip to content</a>
+
+<header class="bar">
+  <div class="wrap">
+    <span class="wordmark">GNN based <span class="ai">Mule detection system</span></span>
+    <nav aria-label="Sections">
+      <a href="#problem">Problem</a>
+      <a href="#solution">Solution</a>
+      <a href="#method">Method</a>
+      <a href="#results">Results</a>
+      <a href="#limits">Limits</a>
+      <a class="gh" href="https://github.com/ashutoshanandmehta/Muleguard" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<!-- ═══════════ HERO ═══════════ -->
+<div class="hero">
+  <div class="wrap">
+    <div class="byline">
+      <span class="who">Ashutosh Anand</span>
+      <span class="role">Final year BS-MS student · Department of Economic Sciences · IIT Kanpur</span>
+    </div>
+  
+    <h1>Stolen money travels through <em>ordinary-looking</em> bank accounts.</h1>
+    <p class="lede">When someone falls for an online scam, the stolen money doesn't go straight to
+      the criminal. It first lands in a normal person's bank account which is called a <strong>money mule
+      account</strong>, and within hours it is forwarded, split up into different accounts, and then
+      withdrawn. Each account on its own looks innocent. <strong>MuleGuard AI</strong> looks at all
+      accounts of a bank together, and the payments flowing between them, and gives every account a
+      risk score so the bank's fraud team knows exactly which accounts to check first.</p>
+
+    <!-- signature: the money trail -->
+    <div class="trail" role="img" aria-label="Diagram of a money-mule trail: a victim's funds pass through a mule account, split across pass-through accounts, and exit at cash-out points. The mule account is circled in red.">
+      <svg viewBox="0 0 940 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L8 4 L0 8 z" fill="#4A5D6E"/>
+          </marker>
+        </defs>
+        <line x1="0" y1="168" x2="940" y2="168" stroke="#C7D4CD" stroke-width="1.5"/>
+        <path class="flow" d="M118 95 H 248" stroke="#4A5D6E" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path class="flow" d="M368 82 C 430 50, 470 42, 532 40" stroke="#4A5D6E" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path class="flow" d="M368 95 H 532"  stroke="#4A5D6E" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path class="flow" d="M368 108 C 430 140, 470 148, 532 150" stroke="#4A5D6E" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path class="flow" d="M652 40 C 706 42, 730 60, 776 78"  stroke="#4A5D6E" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path class="flow" d="M652 95 H 776" stroke="#4A5D6E" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path class="flow" d="M652 150 C 706 148, 730 130, 776 112" stroke="#4A5D6E" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <g font-family="Spline Sans Mono,monospace" font-size="12.5" fill="#16283C">
+          <rect x="28" y="72" width="90" height="46" rx="3" fill="#F7FAF8" stroke="#16283C" stroke-width="1.5"/>
+          <text x="73" y="92" text-anchor="middle">VICTIM</text>
+          <text x="73" y="108" text-anchor="middle" fill="#4A5D6E">acct 4417</text>
+          <rect x="248" y="72" width="120" height="46" rx="3" fill="#F3DAD5" stroke="#BE3A2B" stroke-width="2"/>
+          <text x="308" y="92" text-anchor="middle" fill="#BE3A2B" font-weight="600">MULE</text>
+          <text x="308" y="108" text-anchor="middle" fill="#BE3A2B">in→out 2h 11m</text>
+          <ellipse cx="308" cy="95" rx="76" ry="36" fill="none" stroke="#BE3A2B" stroke-width="1.6" stroke-dasharray="3 4" transform="rotate(-4 308 95)"/>
+          <rect x="532" y="18" width="120" height="44" rx="3" fill="#F7FAF8" stroke="#16283C" stroke-width="1.5"/>
+          <text x="592" y="37" text-anchor="middle">acct1</text><text x="592" y="53" text-anchor="middle" fill="#4A5D6E">fan-out 1/3</text>
+          <rect x="532" y="73" width="120" height="44" rx="3" fill="#F7FAF8" stroke="#16283C" stroke-width="1.5"/>
+          <text x="592" y="92" text-anchor="middle">acct2</text><text x="592" y="108" text-anchor="middle" fill="#4A5D6E">fan-out 2/3</text>
+          <rect x="532" y="128" width="120" height="44" rx="3" fill="#F7FAF8" stroke="#16283C" stroke-width="1.5"/>
+          <text x="592" y="147" text-anchor="middle">acct3</text><text x="592" y="163" text-anchor="middle" fill="#4A5D6E">fan-out 3/3</text>
+          <rect x="776" y="72" width="132" height="46" rx="3" fill="#16283C" stroke="#16283C"/>
+          <text x="842" y="92" text-anchor="middle" fill="#F7FAF8">CASH-OUT</text>
+          <text x="842" y="108" text-anchor="middle" fill="#9DB4A8">ATM/crypto/UPI</text>
+
+        </g>
+
+      </svg>
+      <p class="trail-caption"><span class="fig">Fig. 1 —</span> A typical mule chain: a victim's money enters a
+      <b>mule account</b>, gets split across several pass-through accounts, and exits as cash, crypto, or UPI
+      transfers. The mule account looks normal on its own and the pattern is visible only when you look at the
+      network of payments and their timing.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ PROBLEM ═══════════ -->
+<section id="problem">
+  <div class="wrap">
+    <div class="sec-head rv"><h2>The problem</h2><span class="tag">real-world evidence</span></div>
+    <p class="sec-intro rv">Money muling is how cyber-fraud money escapes. These are not small numbers:</p>
+
+    <div class="exhibits">
+      <div class="exhibit rv">
+        <span class="label">EXHIBIT A · INDIA</span>
+        <div class="figure">26.5 lakh</div>
+        <p>mule accounts identified in India by the end of 2025, with about 4.5 lakh frozen. Fraud
+           networks moved close to ₹20,000 crore through such accounts.</p>
+        <a class="src" href="https://the420.in/mule-accounts-freeze-cybercrime-shift-rbi-i4c-fraud-networks/" rel="noopener">source: I4C — India's national cybercrime coordination centre ↗</a>
+      </div>
+      <div class="exhibit rv">
+        <span class="label">EXHIBIT B · INDIA</span>
+        <div class="figure">₹1.2 lakh crore</div>
+        <p>the cyber-fraud losses India's I4C projected for 2025 alone.</p>
+        <a class="src" href="https://www.iasgyan.in/daily-current-affairs/what-are-mule-accounts-risks-and-prevention" rel="noopener">source: I4C via IAS Gyan ↗</a>
+      </div>
+      <div class="exhibit rv">
+        <span class="label">EXHIBIT C · GLOBAL</span>
+        <div class="figure">10,700+</div>
+        <p>money mules identified in just two of Europol's international crackdown operations
+           ("EMMA"), with thousands of arrests.</p>
+        <a class="src" href="https://www.europol.europa.eu/media-press/newsroom/news/2-469-money-mules-arrested-in-worldwide-crackdown-against-money-laundering" rel="noopener">source: Europol EMMA ↗</a>
+      </div>
+      <div class="exhibit rv">
+        <span class="label">EXHIBIT D · RESPONSE</span>
+        <div class="figure">20,000+ accounts /month</div>
+        <p>mule accounts are caught by MuleHunter.AI, a tool backed by the Reserve Bank of India —
+           and the government has told all banks to add this kind of screening by December 2026.
+           <strong>Banks need exactly this type of software. MuleGuard is a working prototype of it.</strong></p>
+        <a class="src" href="https://the420.in/rbi-mulehunter-ai-tool-mule-accounts-cyber-fraud-india/" rel="noopener">source: The420 / RBIH ↗</a>
+      </div>
+    </div>
+
+    <div class="note rv">
+      <h4>Why it's hard</h4>
+      <p>A mule account passes every normal check — be it a real person, real ID (KYC) or a normal
+      balance. The giveaway is <em>behaviour over time</em>: money arrives, leaves within hours, splits
+      across many accounts, and this repeats in bursts. To catch that, software must study the
+      <strong>network of payments</strong>. It should not be studying accounts one by one, and it must
+      not flood the fraud team with false alarms.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SOLUTION / ARCHITECTURE ═══════════ -->
+<section id="solution">
+  <div class="wrap">
+    <div class="sec-head rv"><h2>The proposed solution: MuleGuard AI</h2><span class="tag">architecture</span></div>
+    <p class="sec-intro rv">MuleGuard AI is a complete, working pipeline which extends from raw data to a
+      ranked list of suspicious accounts on the fraud analyst's desk. Currently, it's a Python CLI
+      (command-line) prototype. It has four stages:</p>
+
+    <!-- responsive workflow flowchart -->
+    <div class="flowchart rv" role="img" aria-label="Workflow: Stage 1 Data feeds Stage 2 Map and clues, which feeds Stage 3 Two models working together, which feeds Stage 4 Decisions.">
+      <div class="fstage">
+        <div class="fbox">
+          <span class="fk">Stage 1</span>
+          <h3>Data</h3>
+          <p>Realistic banking data from AMLSim (an open-source bank transaction simulator built by IBM,
+          which includes labelled mule accounts), converted into MuleGuard's format. Four ready-made fraud
+          scenario demos included: digital-arrest scam, phishing UPI, loan-app scam, betting/crypto.</p>
+          <div class="chips"><span class="chip">convert_amlsim</span><span class="chip">data/scenarios</span></div>
+        </div>
+      </div>
+      <div class="fstage">
+        <div class="fbox">
+          <span class="fk">Stage 2</span>
+          <h3>The map &amp; the clues</h3>
+          <p>Builds a "map" connecting accounts, customers, devices, IP addresses and merchants (who pays
+          whom, who logs in from where). Alongside, it computes <strong>42 behaviour clues</strong> per
+          account — e.g. how fast money leaves after arriving, whether money moves in circles, whether the
+          account sits in the middle of a payment chain.</p>
+          <div class="chips"><span class="chip">graph_dataset</span><span class="chip">build_features</span></div>
+        </div>
+      </div>
+      <div class="fstage">
+        <div class="fbox">
+          <span class="fk">Stage 3</span>
+          <h3>Two models together</h3>
+          <p>A <strong>classic model</strong> scores each account from its 42 clues; a <strong>graph neural
+          network (GNN)</strong> starts from that score and adds the extra signal revealed from the payment
+          network. Details below.</p>
+          <div class="chips"><span class="chip">tabular_teacher</span><span class="chip">train_gnn</span></div>
+        </div>
+      </div>
+      <div class="fstage">
+        <div class="fbox">
+          <span class="fk">Stage 4</span>
+          <h3>Decisions</h3>
+          <p>Scores every account, ranks them, and exports: an alert list for analysts, a tamper-evident
+          audit log, evaluation reports, a kill switch, and manual overrides.</p>
+          <div class="chips"><span class="chip">evaluate</span><span class="chip">operational</span><span class="chip">alerts · audit</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="models-detail">
+      <div class="note green rv"><h4>The classic model (the "teacher")</h4>
+        <p>Gradient boosting — the workhorse of <strong>tabular machine learning</strong>, i.e. learning
+        from spreadsheet-style data where each account is one row and each clue is one column. It scores
+        each account from its 42 behaviour clues and sets the baseline.</p></div>
+      <div class="note green rv"><h4>The network model (the GNN)</h4>
+        <p>A graph neural network learns from the payment map itself. It starts from the classic model's
+        score and adds the extra signal revealed from the network — so the combined system gets better
+        than the classic model.</p></div>
+    </div>
+
+    <!-- system architecture (mermaid) -->
+    <div class="mermaid-wrap rv">
+      <pre class="mermaid">
+flowchart LR
+  subgraph S1["Stage 1 · Data"]
+    AML["AMLSim output&lt;br/&gt;(IBM bank simulator)"] --> CONV["convert_amlsim.py&lt;br/&gt;creates 4 MuleGuard CSVs"]
+  end
+  subgraph S2["Stage 2 · Map &amp; clues"]
+    GD["graph_dataset.py&lt;br/&gt;payment + identity map"]
+    BF["build_features.py&lt;br/&gt;42 behaviour clues per account"]
+  end
+  CONV --> GD
+  CONV --> BF
+  subgraph S3["Stage 3 · Models"]
+    TT["tabular_teacher.py&lt;br/&gt;classic model — the teacher"]
+    GNN["train_gnn.py · gnn_model.py&lt;br/&gt;network model — the GNN"]
+    TT -- "baseline score" --> GNN
+  end
+  BF --> TT
+  GD --> GNN
+  subgraph S4["Stage 4 · Decisions"]
+    EV["evaluate.py&lt;br/&gt;catch-rate reports"]
+    OP["operational.py&lt;br/&gt;alerts · audit log · kill switch"]
+  end
+  GNN -- "risk score per account" --> EV
+  GNN -- "risk score per account" --> OP
+  style TT fill:#DDEAE3,stroke:#1E6B52,stroke-width:2px
+  style GNN fill:#DDEAE3,stroke:#1E6B52,stroke-width:2px
+  style OP fill:#F3DAD5,stroke:#BE3A2B,stroke-width:2px
+      </pre>
+      <p class="mermaid-caption"><span class="fig">Fig. 2 —</span> <centre>System architecture</centre></p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ METHOD ═══════════ -->
+<section id="method">
+  <div class="wrap">
+    <div class="sec-head rv"><h2>How it was tested</h2><span class="tag"> methodology</span></div>
+    <p class="sec-intro rv">The number that matters to a bank: <strong>if the fraud team only has time to
+      review the top 5% riskiest accounts, how many of the real mules are in that pile?</strong> We call
+      this the "catch rate at 5%". Everything below is about making that number <em>trustworthy</em>,
+      not just big.</p>
+
+    <div class="steps">
+      <div class="step rv"><span class="k">Step 1</span><h4>Train on the past, test on the future</h4>
+        <p>Accounts are ordered by time and the AMLSim dataset is split in a 60:20:20 ratio. The model
+        learns from the oldest 60%, is tuned on the next 20%, and is judged on the newest 20%.</p></div>
+      <div class="step rv"><span class="k">Step 2</span><h4>No future data leakage</h4>
+        <p>The classic model is trained only on the training window, and even there its scores are
+        produced in a "hold-one-part-out" way, it never gets to grade rows it memorised.</p></div>
+      <div class="step rv"><span class="k">Step 3</span><h4>Start from the baseline, add only real signal</h4>
+        <p>The GNN begins as an exact copy of the classic model's answer, and training can only add what
+        the payment map genuinely reveals. If the map holds no extra information, the score stays where
+        it was.</p></div>
+      <div class="step rv"><span class="k">Step 4</span><h4>Repeat and refresh</h4>
+        <p>Every experiment runs with multiple random seeds (fresh restarts each time it runs).</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ RESULTS ═══════════ -->
+<section id="results">
+  <div class="wrap">
+    <div class="sec-head rv"><h2>Results</h2><span class="tag">AMLSim 100K Account dataset</span></div>
+    <p class="sec-intro rv"><strong>Setup:</strong> the test had <strong class="num">24,903</strong> accounts,
+      of which <strong class="num">1,236</strong> were real mules. All models were graded on this exact
+      same test dataset.</p>
+
+    <div class="explain rv">
+      <b>Reading guide.</b> The <b>"teacher"</b> is the classic model — it learns from each account's 42
+      behaviour clues and sets the baseline score. The <b>"network"</b> is the GNN — it studies the payment
+      map and adds to the teacher's score. <b>"Catch rate at 5%"</b> means: out of every 100 hidden mules,
+      how many end up inside the top-5% review pile (the score column shows the same thing as a fraction —
+      0.0674 ≈ 6.7 mules out of 100).
+    </div>
+
+    <div class="table-scroll rv">
+      <table class="ledger">
+        <caption>Each model was scored on the same 24,903-account test window.</caption>
+        <thead><tr>
+          <th scope="col">Model</th>
+          <th scope="col">Catch rate @5% (score)</th>
+          <th scope="col">≈ Mules caught per 100</th>
+          <th scope="col">What this row tells you</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Simple rule-based scoring</td><td class="v">0.0502</td><td class="v">~5</td><td>the floor: hand-written rules only</td></tr>
+          <tr><td>GNN alone (the standard approach)</td><td class="v">0.05–0.06</td><td class="v">~5–6</td><td>loses to the classic model — the failure that motivated the hybrid</td></tr>
+          <tr><td>Classic model (the "teacher")</td><td class="v">0.0647</td><td class="v">~6.5</td><td>the baseline the network must improve on</td></tr>
+          <tr class="hl"><td><strong>MuleGuard hybrid (teacher + network)</strong></td><td class="v"><strong>0.0674 ± 0.0010</strong></td><td class="v"><strong>~6.7–6.9</strong></td><td><strong>beat its teacher in every repeated run</strong></td></tr>
+          <tr class="ref"><td>Stronger classic model, more training data</td><td class="v">0.084</td><td class="v">~8.4</td><td>reference only, It was trained on 80% of the data while the rest was trained on 60% of data, so not a like-for-like comparison</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart rv" role="img" aria-label="Horizontal bar chart of catch rate at 5 percent: rules about 5 per 100, GNN alone 5 to 6, teacher 6.5, hybrid 6.7 to 6.9, reference stronger classic model 8.4.">
+      <svg viewBox="0 0 900 230" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" font-family="Spline Sans Mono,monospace" font-size="13">
+        <g fill="#4A5D6E">
+          <text x="248" y="34" text-anchor="end">rule-based scoring</text>
+          <text x="248" y="72" text-anchor="end">GNN alone</text>
+          <text x="248" y="110" text-anchor="end">classic model (teacher)</text>
+          <text x="248" y="148" text-anchor="end">hybrid (teacher+network)</text>
+          <text x="248" y="186" text-anchor="end">reference (more data)</text>
+        </g>
+        <!-- scale: 0.09 → 620px  (x = 260 + v/0.09*620) -->
+        <g>
+          <rect x="260" y="20"  width="346" height="20" fill="#8FA6B5"/>
+          <rect x="260" y="58"  width="379" height="20" fill="#8FA6B5"/>
+          <rect x="260" y="96"  width="446" height="20" fill="#46596B"/>
+          <rect x="260" y="134" width="464" height="20" fill="#1E6B52"/>
+          <rect x="260" y="172" width="579" height="20" fill="none" stroke="#16283C" stroke-width="1.5" stroke-dasharray="4 4"/>
+        </g>
+        <g fill="#16283C">
+          <text x="612" y="34">~5 per 100</text>
+          <text x="645" y="72">~5–6</text>
+          <text x="712" y="110">~6.5</text>
+          <text x="730" y="148" font-weight="600">~6.7–6.9</text>
+          <text x="700" y="186">~8.4 (reference)</text>
+        </g>
+        <line x1="260" y1="10" x2="260" y2="200" stroke="#16283C" stroke-width="1.5"/>
+        <text x="260" y="220" fill="#4A5D6E">0</text>
+        <text x="640" y="220" fill="#4A5D6E">mules caught per 100 →</text>
+      </svg>
+    </div>
+
+    <div class="findings">
+      <div class="note green rv"><h4>Finding 1 — the idea works</h4>
+        <p>The hybrid beat its own teacher in <strong>every</strong> repeated run.</p></div>
+      <div class="note rv"><h4>Finding 2 — the practice data ran out of secrets</h4>
+        <p>The improvement was small, and rebuilding the network in a smarter way (modelling each
+        transaction with its exact timing) changed nothing. Reason: AMLSim is a simulator, and the 42
+        hand-made clues already describe almost everything the simulator generates — there was little left
+        for the network model to discover. <strong>What's needed:</strong> data where the payment network
+        still holds information the clues don't capture — bigger simulations with overlapping fraud
+        patterns, or real bank data.</p></div>
+      <div class="note rv"><h4>Finding 3 — reproducibility</h4>
+        <p>By the project's own strict rule, the classic model remains the recommended choice
+        <strong>on this dataset</strong>, and every experiment — including the failed ideas — is
+        reproducible. (In real bank data, hand-made clues are rarely this perfect, which is exactly where
+        the hybrid is designed to shine.)</p></div>
+    </div>
+
+    <div class="stamp-row rv">
+      <span class="stamp">Verdict · Needs richer data</span>
+      <p>The hybrid model needs richer data to shine. </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ LIMITS & FUTURE ═══════════ -->
+<section id="limits">
+  <div class="wrap">
+    <div class="two-col">
+      <div>
+        <div class="sec-head rv"><h2>Limitations</h2><span class="tag">05 · stated, not hidden</span></div>
+        <ul class="doc-list limits rv">
+          <li><strong>Simulated data.</strong> AMLSim generates fraud using rules, and our clues mirror those rules — real-world results may differ in either direction.</li>
+          <li><strong>Unequal comparison.</strong> The teacher model gets less training data (60%) than the standalone reference model (80%), so their scores aren't directly comparable.</li>
+          <li><strong>Small demo dataset.</strong> The 1,000-account sample included in the repository is for checking that everything runs, but its test window has only 6 mule accounts — too few to measure quality. For better results, train on the 100K dataset.</li>
+          <li><strong>Scale.</strong> The 100K dataset trains comfortably on a laptop; a 1-million-account bank would need the training to work in smaller batches.</li>
+          <li><strong>One static snapshot.</strong> The model trains once on a fixed period. A production system would need to retrain on a rolling schedule.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="sec-head rv"><h2>Future enhancements</h2><span class="tag">06 · in order of expected value</span></div>
+        <ul class="doc-list future rv">
+          <li><strong>Richer data first.</strong> AMLSim's 1-million-account version, then real (anonymised) bank data, where the payment network still holds secrets the clues don't capture.</li>
+          <li><strong>Rolling time windows.</strong> Train, evaluate and retrain the way a live bank would, if possible.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="repo-cta rv" href="https://github.com/ashutoshanandmehta/Muleguard" rel="noopener">View the full project on GitHub ↗</a>
+    <div class="sources rv">
+      <h4>Data sources — problem section</h4>
+      <ol>
+        <li><a href="https://the420.in/mule-accounts-freeze-cybercrime-shift-rbi-i4c-fraud-networks/" rel="noopener">The420 / I4C — mule accounts identified &amp; frozen, ₹20,000 crore siphoned</a></li>
+        <li><a href="https://www.iasgyan.in/daily-current-affairs/what-are-mule-accounts-risks-and-prevention" rel="noopener">I4C via IAS Gyan — projected ₹1.2 lakh crore cyber-fraud losses (2025)</a></li>
+        <li><a href="https://www.europol.europa.eu/media-press/newsroom/news/2-469-money-mules-arrested-in-worldwide-crackdown-against-money-laundering" rel="noopener">Europol — EMMA: 2,469 arrests, 8,755 mules identified</a> · <a href="https://www.europol.europa.eu/media-press/newsroom/news/european-money-mule-action-leads-to-1-803-arrests" rel="noopener">EMMA: 1,803 arrests</a></li>
+        <li><a href="https://the420.in/rbi-mulehunter-ai-tool-mule-accounts-cyber-fraud-india/" rel="noopener">The420 — RBI-backed MuleHunter.AI, ~20,000 mule accounts/month</a></li>
+      </ol>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:8px">Project metrics are generated by this repository's own pipeline on AMLSim data
+      (<a href="https://github.com/IBM/AMLSim" rel="noopener">IBM/AMLSim</a>) and are reproducible via the README quickstart;
+      full experiment log in <span class="num">HYBRID_TEACHER_FINDINGS.md</span>.</p>
+    </div>
+    <p class="fineprint"><center>© 2026 Ashutosh Anand. All rights reserved.</center></p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  // mermaid renders the architecture diagram; if the CDN is unreachable the
+  // flowchart cards above still tell the same story.
+  window.addEventListener("load", function () {
+    if (!window.mermaid) return; // offline: keep the text fallback
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "base",
+      themeVariables: {
+        background: "#F7FAF8",
+        primaryColor: "#F7FAF8",
+        primaryBorderColor: "#16283C",
+        primaryTextColor: "#16283C",
+        lineColor: "#4A5D6E",
+        clusterBkg: "#ECF1EE",
+        clusterBorder: "#4A5D6E",
+        edgeLabelBackground: "#F7FAF8",
+        fontFamily: "Public Sans, system-ui, sans-serif",
+        fontSize: "14px"
+      },
+      flowchart: { useMaxWidth: false, htmlLabels: true, curve: "linear" }
+    });
+    mermaid.run({ querySelector: ".mermaid" });
+  });
+</script>
+<script>
+  // scroll reveals
+  const io = new IntersectionObserver((entries)=>{
+    for (const e of entries) if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+  },{threshold:.12});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+  // scrollspy: highlight the section you are reading (visibility of system status)
+  const links = Array.from(document.querySelectorAll('nav a[href^="#"]'));
+  const secs = links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const spy = new IntersectionObserver((entries)=>{
+    for (const e of entries) if (e.isIntersecting){
+      links.forEach(a=>a.classList.toggle('active', a.getAttribute('href') === '#'+e.target.id));
+    }
+  },{rootMargin:'-40% 0px -55% 0px'});
+  secs.forEach(s=>spy.observe(s));
+</script>
+</body>
+</html>
