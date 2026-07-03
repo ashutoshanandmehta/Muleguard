@@ -1,0 +1,5 @@
+event_id,kind,timestamp,amount,currency,src_account,dst_account,merchant_id,channel,auth_result,txn_status
+BC-1,transaction,1759226400,95000.0,INR,BETTOR_BC_01,MULE_BC_01,,UPI,SUCCESS,POSTED
+BC-2,transaction,1759226460,88000.0,INR,BETTOR_BC_02,MULE_BC_01,,UPI,SUCCESS,POSTED
+BC-3,transaction,1759227000,90000.0,INR,MULE_BC_01,MULE_BC_02,,IMPS,SUCCESS,POSTED
+BC-4,transaction,1759227600,85000.0,INR,MULE_BC_02,CRYPTO_EXIT_BC_01,,WIRE,SUCCESS,POSTED

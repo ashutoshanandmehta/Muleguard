@@ -1,0 +1,5 @@
+account_id,customer_id,device_id,ip_id,merchant_id,session_id
+VICTIM_LA_01,CUST_VICTIM_LA_01,,,,
+VICTIM_LA_02,CUST_VICTIM_LA_02,,,,
+MULE_LA_01,CUST_MULE_LA_01,DEV_LA_01,IP_LA_01,,SES_LA_01
+EXIT_LA_01,CUST_EXIT_LA,,,,

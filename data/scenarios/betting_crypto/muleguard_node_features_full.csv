@@ -1,0 +1,8 @@
+entity_type,entity_id,txn_velocity_24h,recency_decay,ts_anomaly,rule_uplift,device_entropy,ip_reputation,is_mule
+account,BETTOR_BC_01,1.0,0.8,0.05,0.0,,,0
+account,BETTOR_BC_02,1.0,0.8,0.05,0.0,,,0
+account,MULE_BC_01,10.0,0.95,0.75,0.55,,,1
+account,MULE_BC_02,7.0,0.95,0.65,0.45,,,1
+account,CRYPTO_EXIT_BC_01,1.0,0.8,0.05,0.0,,,0
+device,DEV_BC_01,,,,,0.8,,
+ip,IP_BC_01,,,,,,0.7,

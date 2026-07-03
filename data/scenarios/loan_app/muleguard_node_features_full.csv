@@ -1,0 +1,7 @@
+entity_type,entity_id,txn_velocity_24h,recency_decay,ts_anomaly,rule_uplift,device_entropy,ip_reputation,is_mule
+account,VICTIM_LA_01,1.0,0.8,0.05,0.0,,,0
+account,VICTIM_LA_02,1.0,0.8,0.05,0.0,,,0
+account,MULE_LA_01,8.0,0.9,0.62,0.5,,,1
+account,EXIT_LA_01,1.0,0.8,0.05,0.0,,,0
+device,DEV_LA_01,,,,,0.5,,
+ip,IP_LA_01,,,,,,0.5,

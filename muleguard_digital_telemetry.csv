@@ -1,0 +1,3 @@
+kind,timestamp,account_id,session_id,device_id,ip_id,geo_lat,geo_lon,vpn_proxy_flag,failed_logins,auth_method
+login,1758967180,ACC123,SES001,DEV123,IP456,26.5123,80.2324,0,0,PIN
+session,1758967270,ACC123,SES001,DEV123,IP456,26.5125,80.233,0,0,PIN

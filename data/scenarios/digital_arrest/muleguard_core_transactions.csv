@@ -1,0 +1,4 @@
+event_id,kind,timestamp,amount,currency,src_account,dst_account,merchant_id,channel,auth_result,txn_status
+DA-1,transaction,1758967200,120000.0,INR,VICTIM_DA_01,MULE_DA_01,,UPI,SUCCESS,POSTED
+DA-2,transaction,1758967800,115000.0,INR,MULE_DA_01,MULE_DA_02,,IMPS,SUCCESS,POSTED
+DA-3,transaction,1758968400,110000.0,INR,MULE_DA_02,EXIT_DA_01,,IMPS,SUCCESS,POSTED

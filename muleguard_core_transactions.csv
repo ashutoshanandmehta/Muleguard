@@ -1,0 +1,3 @@
+event_id,kind,timestamp,amount,currency,src_account,dst_account,merchant_id,channel,auth_result,txn_status
+TXN0001,transaction,1758967200,15000.0,INR,ACC123,ACC987,MER001,UPI,SUCCESS,POSTED
+TXN0002,transaction,1758967520,95000.0,INR,ACC123,ACC654,MER002,IMPS,SUCCESS,POSTED

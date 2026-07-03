@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "muleguard-ai"
+version = "0.2.0"
+description = "Local CLI package for graph-based mule-account detection and AMLSim evaluation."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+gnn = [
+  "torch>=2.2",
+  "torch-geometric>=2.5",
+]
+eval = [
+  "scikit-learn>=1.4",
+]
+
+[tool.setuptools.packages.find]
+include = ["muleGuard_ai*"]

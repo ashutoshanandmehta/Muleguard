@@ -1,0 +1,3 @@
+account_id,customer_id,device_id,ip_id,merchant_id,session_id
+ACC123,CUST01,DEV123,IP456,MER001,SES001
+ACC987,CUST99,,,,

@@ -1,0 +1,4 @@
+event_id,kind,timestamp,amount,currency,src_account,dst_account,merchant_id,channel,auth_result,txn_status
+PU-1,transaction,1759053600,45000.0,INR,VICTIM_PU_01,MULE_PU_01,,UPI,SUCCESS,POSTED
+PU-2,transaction,1759053720,30000.0,INR,VICTIM_PU_02,MULE_PU_01,,UPI,SUCCESS,POSTED
+PU-3,transaction,1759053900,73000.0,INR,MULE_PU_01,EXIT_PU_01,,IMPS,SUCCESS,POSTED

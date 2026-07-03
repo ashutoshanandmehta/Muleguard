@@ -1,0 +1,2 @@
+kind,timestamp,account_id,session_id,device_id,ip_id,geo_lat,geo_lon,vpn_proxy_flag,failed_logins,auth_method
+login,1759053500,MULE_PU_01,SES_PU_01,DEV_PU_01,IP_PU_01,19.07,72.87,0,3,OTP
