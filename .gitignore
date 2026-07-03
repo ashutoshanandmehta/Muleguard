@@ -11,3 +11,4 @@ __pycache__/
 models/
 runtime/
 .pycache/
+data/amlsim_1k_features/

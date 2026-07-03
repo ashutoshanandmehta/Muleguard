@@ -1,5 +1,6 @@
-pandas>=2.0
+# MuleGuard AI dependencies (Python 3.9-3.13).
+# For the exactly-tested environment (Python 3.9.6), use requirements-lock.txt.
 numpy>=1.24
+scikit-learn>=1.4
 torch>=2.2
 torch-geometric>=2.5
-scikit-learn>=1.4

@@ -12,6 +12,49 @@ This version is intentionally scoped to Phase 0-2:
 
 Dashboard, REST API, RBIH/I4C submission, federated learning, and live bank integrations are placeholders for future versions.
 
+## Quickstart (reproducible)
+
+Requires Python 3.9-3.13 (this repo is exactly tested on 3.9.6; `requirements-lock.txt`
+pins that environment).
+
+```bash
+python3 -m venv .venv-ml
+.venv-ml/bin/pip install -r requirements.txt   # or requirements-lock.txt for exact pins
+
+# 1. Demo + test suite (36 tests)
+.venv-ml/bin/python demo_runner.py
+.venv-ml/bin/python -m unittest discover -s tests
+
+# 2. Rebuild engineered features from the committed AMLSim 1K conversion
+.venv-ml/bin/python -m muleGuard_ai.build_features \
+  --data data/amlsim_1k --output data/amlsim_1k_features
+
+# 3. Train the tabular baseline and the hybrid tabular-teacher + graph-residual GNN
+.venv-ml/bin/python -m muleGuard_ai.train_baseline_model \
+  --data data/amlsim_1k_features \
+  --metrics-out runtime/reports/tabular_1k_metrics.json
+.venv-ml/bin/python -m muleGuard_ai.train_gnn \
+  --transactions data/amlsim_1k_features/muleguard_core_transactions.csv \
+  --telemetry data/amlsim_1k_features/muleguard_digital_telemetry.csv \
+  --entity-map data/amlsim_1k_features/muleguard_entity_map_full.csv \
+  --node-features data/amlsim_1k_features/muleguard_node_features_full.csv \
+  --use-tabular-teacher \
+  --output models/hybrid_1k.pt
+
+# 4. Evaluate the checkpoint with analyst-queue metrics
+.venv-ml/bin/python -m muleGuard_ai.evaluate \
+  --data data/amlsim_1k_features \
+  --checkpoint models/hybrid_1k.pt \
+  --output runtime/reports/hybrid_1k_metrics.json
+```
+
+`data/amlsim_1k/` is a committed AMLSim 1K conversion so the full pipeline runs out of the
+box. It is smoke-scale: its time-based test slice holds only 6 positive accounts, so treat
+1K metrics as plumbing checks. The 10K/100K experiments in
+`HYBRID_TEACHER_FINDINGS.md` require generating AMLSim data externally
+(https://github.com/IBM/AMLSim) and converting it with `muleGuard_ai.convert_amlsim` (see
+below).
+
 ## Commands
 
 Run the small built-in demo:
